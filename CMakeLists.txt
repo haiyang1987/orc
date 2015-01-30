@@ -23,31 +23,60 @@ include_directories(
 
 if (MSVC)
   set (GMOCK_LIB "${CMAKE_BINARY_DIR}/libs/gmock-${GMOCK_VERSION}/gmock_main")
+  set (PROTOBUF_VERSION "2.6.0")
+  set (ZLIB_VERSION "1.2.8")
+  add_definitions (-D_SCL_SECURE_NO_WARNINGS)
+  add_definitions (-D_CRT_SECURE_NO_WARNINGS)
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+  
+  find_package (Protobuf)
+  
+  if (NOT Protobuf_FOUND)
+    include_directories(
+    ${CMAKE_SOURCE_DIR}/libs/protobuf-${PROTOBUF_VERSION}/include
+    )
+    # a hack making msvc compile protoc.exe before protobuf_generate_cpp
+    set (PROTOBUF_PROTOC_EXECUTABLE ${CMAKE_BINARY_DIR}/libs/protobuf-${PROTOBUF_VERSION}/${CMAKE_CFG_INTDIR}/a_protoc.exe)
+    set (PROTOBUF_LITE_LIBRARIES "${CMAKE_CFG_INTDIR};${CMAKE_BINARY_DIR}/libs/protobuf-${PROTOBUF_VERSION}/${CMAKE_CFG_INTDIR}/libprotobuf-lite.lib")
+    set (PROTOBUF_LIBRARIES "${CMAKE_CFG_INTDIR};${CMAKE_BINARY_DIR}/libs/protobuf-${PROTOBUF_VERSION}/${CMAKE_CFG_INTDIR}/libprotobuf.lib")
+  else (NOT Protobuf_FOUND)
+    message (STATUS "PROTOBUF_LIBRARIES = ${PROTOBUF_LIBRARIES}")
+    message (STATUS "PROTOBUF_LITE_LIBRARIES = ${PROTOBUF_LITE_LIBRARIES}")
+    message (STATUS "PROTOBUF_LIBRARY = ${PROTOBUF_LIBRARY}")
+    message (STATUS "PROTOBUF_LITE_LIBRARY = ${PROTOBUF_LITE_LIBRARY}")
+  endif (NOT Protobuf_FOUND)
+  
+  find_package(ZLIB)
+  
+  if (NOT ZLIB_FOUND)
+    set (ZLIB_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/libs/zlib-${ZLIB_VERSION}/include)
+    set (ZLIB_LIBRARIES "${CMAKE_CFG_INTDIR};${CMAKE_BINARY_DIR}/libs/zlib-${PROTOBUF_VERSION}/${CMAKE_CFG_INTDIR}/zlibstaticd.lib")
+  else (NOT ZLIB_FOUND)
+    message (STATUS "ZLIB_INCLUDE_DIR = ${ZLIB_INCLUDE_DIR}")
+    message (STATUS "ZLIB_LIBRARIES = ${ZLIB_LIBRARIES}")
+  endif (NOT ZLIB_FOUND)
+  
 else(MSVC)
   set (GMOCK_LIB "${CMAKE_BINARY_DIR}/libs/gmock-${GMOCK_VERSION}/libgmock_main.a")
+  find_package (Protobuf REQUIRED)
+
+  find_package(ZLIB REQUIRED)
+  if (NOT ZLIB_FOUND)
+    # hack: if can't find zlib, or want to share common third-party lib, set path explicitly
+    set(ZLIB_INCLUDE_DIR $ENV{ZLIB_INCLUDE_DIR})
+    set(ZLIB_LIBRARIES $ENV{ZLIB_LIBRARIES})
+  endif(NOT ZLIB_FOUND)
+  MESSAGE( STATUS "ZLIB_INCLUDE_DIR:         " ${ZLIB_INCLUDE_DIR} )
+  MESSAGE( STATUS "ZLIB_LIBRARIES:         " ${ZLIB_LIBRARIES} )
+  set (CXX11_FLAGS "-std=c++11")
 endif(MSVC)
+
+include_directories(${ZLIB_INCLUDE_DIR})
 
 if(NOT APPLE AND NOT MSVC)
   list (APPEND GMOCK_LIB pthread)
 endif(NOT APPLE AND NOT MSVC)
 enable_testing()
-
-find_package (Protobuf REQUIRED)
-
-find_package(ZLIB REQUIRED)
-if (NOT ZLIB_FOUND)
-    # hack: if can't find zlib, or want to share common third-party lib, set path explicitly
-    set(ZLIB_INCLUDE_DIR $ENV{ZLIB_INCLUDE_DIR})
-    set(ZLIB_LIBRARIES $ENV{ZLIB_LIBRARIES})
-endif(NOT ZLIB_FOUND)
-MESSAGE( STATUS "ZLIB_INCLUDE_DIR:         " ${ZLIB_INCLUDE_DIR} )
-MESSAGE( STATUS "ZLIB_LIBRARIES:         " ${ZLIB_LIBRARIES} )
-include_directories(${ZLIB_INCLUDE_DIR})
-
-if(NOT MSVC)
-  # Visual studio enables C++11 support by default.
-  set (CXX11_FLAGS "-std=c++11")
-endif(NOT MSVC)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set (COVERAGE_FLAGS "--coverage -g -O0")
@@ -59,10 +88,6 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   set (WARN_FLAGS "-Wall -Werror")
 endif ()
-
-if(MSVC)
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
-endif(MSVC)
 
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 #set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COVERAGE_FLAGS}")
